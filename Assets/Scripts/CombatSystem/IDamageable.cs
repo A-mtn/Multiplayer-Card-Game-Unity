@@ -3,16 +3,19 @@ using Unity.Netcode;
 
 namespace CombatSystem
 {
-    public interface IDamagable
+    public interface IDamageable
     {
-        NetworkVariable<int> health { get; }
-        NetworkVariable<int> maxHealth { get; }
+        public int health { get; }
+        public int maxHealth { get; }
         event Action healthChanged;
         event Action maxHealthChanged;
         event Action defeated;
         event Action<int> healed;
         event Action<int, bool> damaged;
         event Action evaded;
+        bool isInitialized { get; }
+        event Action initialized;
+        event Action willUninitialize;
         void TakeDamage(IDamage rawDamage);
     }
 }

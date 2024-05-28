@@ -10,11 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54a5dad1b88a4366a9bb5e5a19875886, type: 3}
-  m_Name: TestDamage
+  m_Name: TestDamage2
   m_EditorClassIdentifier: 
-  ID: 0
+  ID: 2
   Name: damager
   Icon: {fileID: 0}
   Description: deals danage
   Damage: 6
   Heal: 0
+  effectType: 0
+  SoldierID: 2

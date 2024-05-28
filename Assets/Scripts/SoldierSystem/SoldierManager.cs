@@ -1,41 +1,59 @@
-﻿using Unity.Netcode;
+﻿using System.Collections.Generic;
+using System.Linq;
+using CardSystem;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace SoldierSystem
 {
     public class SoldierManager : NetworkBehaviour
     {
-        [SerializeField] private GameObject soldierPrefabBlue;
-        [SerializeField] private GameObject soldierPrefabRed;
+        private Dictionary<ulong, List<int>> m_playerSoldiers = new Dictionary<ulong, List<int>>();
+        [SerializeField] private GameObject[] m_soldierPrefabs;
+        [SerializeField] private CardManager m_cardManager;
         
-        public void SpawnInitialPrefabsForPlayers()
-        {
-            foreach (var player in NetworkManager.Singleton.ConnectedClientsList)
-            {
-                Debug.Log("Creating soldiers for player " + player.ClientId);
-                var zPos = (int)player.ClientId * 3; 
-            
-                GameObject prefabToSpawn = null;
-                switch (player.ClientId)
+        public void RegisterPlayerSoldiers(ulong clientId, List<int> soldierIds) {
+            if (!m_playerSoldiers.ContainsKey(clientId)) {
+                m_playerSoldiers[clientId] = new List<int>();
+            }
+        
+            m_playerSoldiers[clientId].AddRange(soldierIds);
+        }
+        
+        public void SpawnSoldiersForPlayer(ulong clientID) {
+            if (m_playerSoldiers.TryGetValue(clientID, out List<int> soldierIds)) {
+                foreach (int id in soldierIds)
                 {
-                    case 1:
-                        prefabToSpawn = soldierPrefabBlue;
-                        break;
-                    case 2:
-                        prefabToSpawn = soldierPrefabRed;
-                        break;
-                    default:
-                        Debug.LogError("Unsupported client ID: " + player.ClientId);
-                        continue;
-                }
-            
-                for (int i = 0; i < 3; i++)
-                {
-                    GameObject go = Instantiate(prefabToSpawn, new Vector3(i * 3.0f, 0, zPos), Quaternion.identity);
-                    go.GetComponent<NetworkObject>().Spawn();
+                    SpawnSoldier(id, clientID);
                 }
             }
         }
         
+        private void SpawnSoldier(int soldierId, ulong clientID) {
+            GameObject prefab = m_soldierPrefabs.FirstOrDefault(p => p.GetComponent<Soldier>().SoldierId == soldierId);
+            if (prefab != null)
+            {
+                var pos = new Vector3(soldierId * 3.0f - ((int)clientID - 1) * 9, 0, (int)clientID * 3);
+                GameObject soldierInstance = Instantiate(prefab, pos, Quaternion.identity);
+                soldierInstance.GetComponent<NetworkObject>().Spawn();
+                Soldier soldier = soldierInstance.GetComponent<Soldier>();
+                soldierInstance.name = soldier.Name;
+                soldier.SetInitialValues();
+                m_cardManager.AddCardToThePlayer(soldier.SoldierCards[0].ID, (int)clientID);
+                TagSoldierClientRpc(soldierInstance.GetComponent<NetworkObject>().NetworkObjectId, clientID);
+            } else {
+                Debug.LogError("No prefab found with Soldier ID: " + soldierId);
+            }
+        }
+
+        [ClientRpc]
+        private void TagSoldierClientRpc(ulong networkObjectId, ulong ownerClientId)
+        {
+            NetworkObject networkObject = NetworkManager.Singleton.SpawnManager.SpawnedObjects[networkObjectId];
+            GameObject soldierObject = networkObject.gameObject;
+            ulong localClientID = NetworkManager.Singleton.LocalClientId;
+
+            soldierObject.tag = localClientID == ownerClientId ? "Friend" : "Enemy";
+        }
     }
 }

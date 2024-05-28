@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.Networking;
 using System.Collections;
+using TurnSystem;
 
 namespace QuantumConnectionSystem
 {
@@ -17,7 +18,7 @@ namespace QuantumConnectionSystem
             }
             Instance = this;
         }
-        
+
         public void ConnectToQuantum()
         {
             string exampleCircuit = "{\"qubits\": 2, \"circuit\": \"data\"}";
@@ -44,9 +45,24 @@ namespace QuantumConnectionSystem
                         break;
                     case UnityWebRequest.Result.Success:
                         Debug.Log(pages[page] + ":\nReceived: " + webRequest.downloadHandler.text);
+                        ProcessQuantumResult(webRequest.downloadHandler.text);
                         break;
                 }
             }
+        } 
+        
+        private void ProcessQuantumResult(string jsonResult)
+        {
+            QuantumResult result = JsonUtility.FromJson<QuantumResult>(jsonResult);
+            TurnManager.Instance.HandleCardPlayOrder(result.mostOccurred);
+        }
+        
+        [System.Serializable]
+        public class QuantumResult
+        {
+            public bool success;
+            public string mostOccurred;
+            public int count;
         }
     }
 }

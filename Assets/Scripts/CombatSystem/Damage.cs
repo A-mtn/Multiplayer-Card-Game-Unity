@@ -2,7 +2,7 @@
 
 namespace CombatSystem
 {
-    public class Damage
+    public class Damage : IDamage
     {
         public bool isCriticalHit { get; private set; }
         public int magnitude { get; private set; }

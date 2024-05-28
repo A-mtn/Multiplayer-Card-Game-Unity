@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using CardSystem;
+using SoldierSystem;
 using TurnSystem;
 using Unity.Netcode;
 using UnityEngine;
@@ -11,6 +12,8 @@ namespace MainGame
     {
         public static GameManager Instance { get; private set; }
         [SerializeField] private CardManager m_CardManager;
+        [SerializeField] private SoldierManager m_SoldierManager;
+        
         public event Action startGame;
         private void Awake()
         {
@@ -45,32 +48,31 @@ namespace MainGame
         private void ChangePlayerIndexServerRpc(ServerRpcParams serverRpcParams = default)
         {
             currentPlayerIndex.Value += 1;
-            var clientId = serverRpcParams.Receive.SenderClientId;
-            if (NetworkManager.ConnectedClients.ContainsKey(clientId))
-            {
-                var client = NetworkManager.ConnectedClients[clientId];
-                Debug.Log("this is the client: " + client + " and id: " + clientId);
-                if ((int)clientId == 1)
-                {
-                    m_CardManager.GetInitialCardsForPlayer((int)clientId);
-                    Debug.Log("got player 1 card ready: ");
-                }
-                else if ((int)clientId == 2)
-                {
-                    m_CardManager.GetInitialCardsForPlayer((int)clientId);
-                    Debug.Log("got player 2 card ready: ");
-                }
-            }
-
+            
             if (currentPlayerIndex.Value == 2)
             {
                 Debug.Log("Set event to start the game!");
+                SetupInitialSoldiers();
                 startGame?.Invoke();
             }
         }
         private void OnPlayerIndexChanged(int previous, int current)
         {
             Debug.Log("current player index changed from: " + previous + " to: " + current);
+        }
+        
+        private void SetupInitialSoldiers() {
+            // Example setup for two players
+            m_SoldierManager.RegisterPlayerSoldiers(1, new List<int> { 0, 1, 2 });
+            m_SoldierManager.RegisterPlayerSoldiers(2, new List<int> { 3, 4, 5 });
+        }
+
+        public void SpawnSoldiersForClients()
+        {
+            foreach (var player in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                m_SoldierManager.SpawnSoldiersForPlayer(player.ClientId);
+            }
         }
 
     }

@@ -15,6 +15,6 @@ namespace CardSystem
             public int Damage;
             public int Heal;
             public CardEffectType effectType;
-            public Soldier soldier;
+            public int SoldierID;
     }
 }
