@@ -13,8 +13,10 @@ MonoBehaviour:
   m_Name: TestDamage0
   m_EditorClassIdentifier: 
   ID: 0
-  Name: damager
+  Name: damager0
   Icon: {fileID: 0}
   Description: deals danage
-  Damage: 6
+  Damage: 25
   Heal: 0
+  effectType: 0
+  SoldierID: 0

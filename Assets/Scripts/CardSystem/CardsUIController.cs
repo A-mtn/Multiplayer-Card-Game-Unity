@@ -24,6 +24,11 @@ namespace CardSystem
         [SerializeField] private Transform m_localPlayerPlayedCardsContainer;
         [SerializeField] private Transform m_otherPlayerPlayedCardsContainer;
         [SerializeField] private GameObject m_playedCardInfoPrefab;
+        
+        [SerializeField] private GameObject m_ArrowPrefab;
+        private Dictionary<int, GameObject> m_Arrows = new Dictionary<int, GameObject>();
+        
+        private Dictionary<int, System.Action> targetSelectedHandlers = new Dictionary<int, System.Action>();
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
@@ -44,7 +49,9 @@ namespace CardSystem
                         break;
                 }
 
+                Debug.LogWarning("Connect to playedCard action !!!");
                 m_CardManager.playedCard += UpdatePlayedCardsUI;
+                m_CardManager.removedArrow += RemoveArrow;
             }
         }
 
@@ -59,14 +66,36 @@ namespace CardSystem
             switch(state)
             {
                 case 1:
+                    ResetUI();
                     break;
                 case 2:
-                    
+                    ResetUI();
+                    ClearSelections();
                     break;
-                
+                case 3:
+                    ResetCardUI();
+                    break;
                 default:
                     Debug.LogWarning($"Unrecognized state: {state}");
                     break;
+            }
+        }
+        
+        private void ResetUI()
+        {
+            ResetCardUI();
+            ClearArrowContainer();
+        }
+
+        private void ResetCardUI()
+        {
+            foreach (Transform child in m_CardContainer.transform)
+            {
+                var cardUI = child.GetComponent<CardUI>();
+                if (cardUI != null)
+                {
+                    cardUI.ResetScale();
+                }
             }
         }
 
@@ -104,9 +133,10 @@ namespace CardSystem
             }
         }
         
-        private void OnCardClicked(CardData cardData)
+        private void OnCardClicked(CardData cardData, CardUI cardUI)
         {
             // Show target selection UI based on card type
+            Debug.Log("card clicked on controller");
             if (cardData.Damage > 0)
             {
                 HighlightTargets("Enemy", cardData.ID, m_EnemyOutlineMaterial);
@@ -128,17 +158,23 @@ namespace CardSystem
                     List<Material> materials = new List<Material>(renderer.materials) { outlineMaterial };
                     renderer.materials = materials.ToArray();
                 } 
-                soldier.selected += () => OnTargetSelected(cardID, soldier.SoldierId, outlineMaterial);
+                System.Action handler = () => OnTargetSelected(cardID, soldier.SoldierId, outlineMaterial);
+                
+                if (!targetSelectedHandlers.ContainsKey(soldier.SoldierId))
+                {
+                    targetSelectedHandlers[soldier.SoldierId] = handler;
+                }
+                
+                Debug.Log(soldier.Name + " started listening selected event!");
+                soldier.selected += targetSelectedHandlers[soldier.SoldierId];
             }
         }
         
         private void OnTargetSelected(int cardID, int targetID, Material outlineMaterial)
         {
-            // Remove outline from all soldiers
             Debug.Log("remove outline from all soldiers!");
             RemoveOutlineFromAllSoldiers(outlineMaterial);
 
-            // Send selected card and target to server
             var clientID = (int)NetworkManager.Singleton.LocalClientId;
             SelectCardOnServerRpc(clientID, cardID, targetID);
         }
@@ -171,7 +207,14 @@ namespace CardSystem
                 }
                 renderer.materials = materials.ToArray();
             }
-            soldier.selected -= () => OnTargetSelected(0, soldier.SoldierId, outlineMaterial);
+            
+            if (targetSelectedHandlers.ContainsKey(soldier.SoldierId))
+            {
+                
+                Debug.Log(soldier.Name + " stopped listening selected event!");
+                soldier.selected -= targetSelectedHandlers[soldier.SoldierId];
+                targetSelectedHandlers.Remove(soldier.SoldierId);
+            }
         }
         
         [ServerRpc(RequireOwnership = false)]
@@ -197,7 +240,7 @@ namespace CardSystem
 
         public void UpdatePlayedCardsUI(int clientID, int cardID, int targetID)
         {
-            Debug.Log("Catch played card event!!!");
+            Debug.Log("Catch played card event!!! card:" + cardID + " target: " + targetID);
             // Update local player's played cards UI
             
             var localClientID = (int)NetworkManager.Singleton.LocalClientId;
@@ -207,33 +250,75 @@ namespace CardSystem
             }
             else
             {
-                // Update other player's played cards UI
                 UpdatePlayedCardsUI(m_otherPlayerPlayedCardsContainer, cardID, targetID);
             }
         }
-
+        
         private void UpdatePlayedCardsUI(Transform container, int cardID, int targetID)
         {
-            // Clear previous entries
-            /*foreach (Transform child in container)
-            {
-                Destroy(child.gameObject);
-            }*/
-
+           // ClearContainer();
+            
             Debug.Log("c: " + cardID + " t: " + targetID);
             var cardData = m_CardManager.GetCardDataById(cardID);
             var targetSoldier = m_CardManager.FindTargetByID(targetID);
             if (cardData != null && targetSoldier != null)
             {
-                var entry = Instantiate(m_playedCardInfoPrefab, container);
-                var text = entry.GetComponentInChildren<TMP_Text>();
-                Soldier soldier = targetSoldier.GetComponent<Soldier>();
-                text.text = $"Card: {cardData.Name}, Target: {soldier.Name}";
+                CreateArrow(cardData, targetSoldier);
             }
-            else
+            else 
+            { 
+                Debug.LogWarning("COULD NOT FIND SOLDIER WITH ID " + targetID);
+            }
+        }
+
+        private void ClearArrowContainer()
+        {
+            foreach (var arrow in m_Arrows.Values)
             {
-                Debug.LogWarning("COULD NOT FOUND SOLDIER WITH ID " + cardID);
+                Destroy(arrow);
             }
+            m_Arrows.Clear();
+        }
+        
+        private void CreateArrow(CardData cardData, Soldier targetSoldier)
+        {
+            var sourceSoldier = m_CardManager.FindTargetByID(cardData.SoldierID);
+            if (sourceSoldier != null)
+            {
+                var arrow = Instantiate(m_ArrowPrefab);
+                m_Arrows[cardData.ID] = arrow;
+
+                var lineRenderer = arrow.GetComponent<LineRenderer>();
+                if (lineRenderer != null)
+                {
+                    lineRenderer.SetPosition(1, sourceSoldier.transform.position + Vector3.up * 1.6f);
+                    lineRenderer.SetPosition(0, targetSoldier.transform.position + Vector3.up * 1.6f);
+                }
+            }
+        }
+        
+        public void RemoveArrow(int cardID)
+        {
+            if (m_Arrows.ContainsKey(cardID))
+            {
+                Destroy(m_Arrows[cardID]);
+                m_Arrows.Remove(cardID);
+            }
+        }
+        
+        private void ClearSelections()
+        {
+            foreach (var soldier in m_CardManager.GetSoldiersByTag("Friend"))
+            {
+                RemoveOutline(soldier, m_FriendOutlineMaterial);
+            }
+
+            foreach (var soldier in m_CardManager.GetSoldiersByTag("Enemy"))
+            {
+                RemoveOutline(soldier, m_EnemyOutlineMaterial);
+            }
+
+            targetSelectedHandlers.Clear();
         }
     }
 }

@@ -16,11 +16,12 @@ namespace CardSystem
         public TMP_Text damageText;
         public TMP_Text healText;
 
-        public Action<CardData> clicked;
+        public Action<CardData, CardUI> clicked;
 
         private CardData m_CardData;
         [SerializeField] private Button m_CardPlayButton;
 
+        private bool isSelected = false;
 
         private void Awake()
         {
@@ -41,6 +42,17 @@ namespace CardSystem
             healText.text = cardData.Heal.ToString();
         }
 
+        public void ScaleUp()
+        {
+            transform.localScale = new Vector3(1.2f, 1.2f, 1.2f); // Change this to the scale you want
+        }
+
+        public void ResetScale()
+        {
+            transform.localScale = new Vector3(1, 1, 1); // Reset to original scale
+            isSelected = false;
+        }
+        
         public void OnPointerDown(PointerEventData eventData)
         {
             //Debug.Log("card down");
@@ -54,18 +66,27 @@ namespace CardSystem
         public void OnPointerClick(PointerEventData eventData)
         {
             //Debug.Log("card click");
-            clicked?.Invoke(m_CardData);
+            if (isSelected)
+                return;
+            
+            ScaleUp();
+            clicked?.Invoke(m_CardData, this);
+            isSelected = true;
         }
 
         public void OnPointerEnter(PointerEventData eventData)
         {
             //Debug.Log("card enter");
+            if (isSelected)
+                return;
             this.gameObject.transform.localScale = new Vector3(1.1f, 1.1f, 1.1f);
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
             //Debug.Log("card exit");
+            if (isSelected)
+                return;
             this.gameObject.transform.localScale = new Vector3(1f, 1f, 1f);
         }
     }

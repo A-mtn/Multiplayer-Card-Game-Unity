@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using CardSystem;
 using CombatSystem;
@@ -7,6 +8,7 @@ using QuantumConnectionSystem;
 using SoldierSystem;
 using Unity.Netcode;
 using UnityEngine;
+using Unity.Collections;
 
 namespace TurnSystem
 {
@@ -15,6 +17,7 @@ namespace TurnSystem
         private IGameState m_currentState;
         public NetworkVariable<int> currentStateID = new NetworkVariable<int>();
         private int m_PlayersEndedTurn = 0;
+        public NetworkVariable<int> quantumNumber = new NetworkVariable<int>();
         
         public static TurnManager Instance { get; private set; }
         
@@ -38,7 +41,6 @@ namespace TurnSystem
 
         private void SetState(IGameState newState)
         {
-            Debug.Log("Changing state!!! Old State is: " + currentStateID.Value+ " New state is: " + newState.GetID()) ;
             m_currentState?.OnExit(this);
             m_currentState = newState;
             currentStateID.Value = newState.GetID();
@@ -74,6 +76,7 @@ namespace TurnSystem
             {
                 m_PlayersEndedTurn = 0;
                 QuantumConnector.Instance.ConnectToQuantum();
+                SetState(new EvaluationState());
                 m_currentState.HandleTurn(this);
             }
         }
@@ -103,7 +106,7 @@ namespace TurnSystem
                 }
             }
 
-            ExecuteCardActions(combinedOrder);
+            StartCoroutine(ExecuteCardActionsCoroutine(adjustedOrder, combinedOrder));
         }
 
         private string AdjustMostOccurred(string mostOccurred)
@@ -148,43 +151,70 @@ namespace TurnSystem
             return new string(adjusted);
         }
         
-        private void ExecuteCardActions(List<(int cardID, int targetID)> combinedOrder)
+        private IEnumerator ExecuteCardActionsCoroutine(string adjustedOrder, List<(int cardID, int targetID)> combinedOrder)
         {
+            var i = 0;
+            var qString = "";
             foreach (var (cardID, targetID) in combinedOrder)
             {
-                var cardData = CardManager.Instance.GetCardDataById(cardID);
-                var targetSoldier = CardManager.Instance.FindTargetByID(targetID);
+                yield return new WaitForSeconds(1.5f);
 
-                if (cardData != null && targetSoldier != null)
+                ExecuteCardAction(cardID, targetID);
+                CardManager.Instance.RemoveArrow(cardID);
+                qString += adjustedOrder[i];    
+                quantumNumber.Value = int.Parse(qString);
+                i++;
+            }
+            
+            SetState(new CardPlayState());
+        }
+        
+        private void ExecuteCardAction(int cardID, int targetID)
+        { 
+            var cardData = CardManager.Instance.GetCardDataById(cardID);
+            var targetSoldier = CardManager.Instance.FindTargetByID(targetID);
+
+            if (cardData != null && targetSoldier != null)
+            {
+                if (cardData.Damage > 0)
                 {
-                    if (cardData.Damage > 0)
+                    targetSoldier.TakeDamage(new HealthModifier
                     {
-                        targetSoldier.TakeDamage(new HealthModifier
-                        {
-                            magnitude = (-1) * cardData.Damage, 
-                            isCriticalHit = false, 
-                            instigator =  null, 
-                            source = null
-                        });
-                    }
+                        magnitude = (-1) * cardData.Damage, 
+                        isCriticalHit = false, 
+                        instigator =  null, 
+                        source = null
+                    });
+                }
 
-                    if (cardData.Heal > 0)
+                if (cardData.Heal > 0)
+                {
+                    targetSoldier.TakeDamage(new HealthModifier
                     {
-                        targetSoldier.TakeDamage(new HealthModifier
-                        {
-                            magnitude = cardData.Heal, 
-                            isCriticalHit = false, 
-                            instigator =  null, 
-                            source = null
-                        });
-                    }
+                        magnitude = cardData.Heal, 
+                        isCriticalHit = false, 
+                        instigator =  null, 
+                        source = null
+                    });
                 }
             }
+        }
+
+        public void ClearPlayedCards()
+        {
+            Debug.Log("Reset played cards!");
+            CardManager.Instance.FirstPlayerPlayedCards.Clear();
+            CardManager.Instance.SecondPlayerPlayedCards.Clear();
+        }
+        [ClientRpc]
+        private void DisplayCardActionClientRpc(char c)
+        {
         }
         
         public void SpawnInitialPrefabsForPlayers()
         {
             GameManager.Instance.SpawnSoldiersForClients();
+            SetState(new CardPlayState());
         }
     }
 }

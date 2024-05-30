@@ -1,4 +1,6 @@
-﻿namespace TurnSystem
+﻿using UnityEngine;
+
+namespace TurnSystem
 {
     public class EvaluationState : IGameState
     {

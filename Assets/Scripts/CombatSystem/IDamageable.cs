@@ -9,7 +9,7 @@ namespace CombatSystem
         public int maxHealth { get; }
         event Action healthChanged;
         event Action maxHealthChanged;
-        event Action defeated;
+        event Action<int> defeated;
         event Action<int> healed;
         event Action<int, bool> damaged;
         event Action evaded;

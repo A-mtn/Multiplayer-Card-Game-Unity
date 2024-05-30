@@ -1,4 +1,5 @@
 using System;
+using CardSystem;
 using CombatSystem;
 using MainGame;
 using Unity.Netcode;
@@ -64,8 +65,14 @@ namespace SoldierSystem
             damageText.Set("Evaded", Color.yellow);
         }
         
-        private void OnDefeated()
-        { 
+        private void OnDefeated(int soldierID)
+        {
+            if (IsServer)
+            {
+                var clientID = CardManager.Instance.GetSoldierClient(soldierID);
+                CardManager.Instance.RemoveCardForSoldier(soldierID);
+                EndGameUIController.Instance.CheckEndGame(clientID);
+            }
             Destroy(this.gameObject);
         }
         

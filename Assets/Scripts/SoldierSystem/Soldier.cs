@@ -17,7 +17,7 @@ namespace SoldierSystem
         public int maxHealth => maxHealth_replicated.Value;
         public event Action healthChanged;
         public event Action maxHealthChanged;
-        public event Action defeated;
+        public event Action<int> defeated;
         public event Action<int> healed;
         public event Action<int, bool> damaged;
         public event Action evaded;
@@ -82,7 +82,7 @@ namespace SoldierSystem
         [ClientRpc]
         private void DefeatedClientRpc()
         {
-            defeated?.Invoke();
+            defeated?.Invoke(m_soldierId);
         }
         
         public void TakeDamage(IDamage rawDamage)
@@ -112,8 +112,8 @@ namespace SoldierSystem
 
             if (health <= 0) {
                 health_replicated.Value = 0;
-                defeated?.Invoke();
-                DefeatedClientRpc();
+                defeated?.Invoke(m_soldierId);
+                //DefeatedClientRpc();
             }
         }
         

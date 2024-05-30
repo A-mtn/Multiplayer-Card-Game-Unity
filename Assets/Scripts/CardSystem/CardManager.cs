@@ -16,8 +16,9 @@ namespace CardSystem
 
         public List<(int cardID, int targetID)> FirstPlayerPlayedCards { get; private set; } = new List<(int cardID, int targetID)>();
         public List<(int cardID, int targetID)> SecondPlayerPlayedCards { get; private set; } = new List<(int cardID, int targetID)>();
-        
+
         public Action<int, int, int> playedCard;
+        public Action<int> removedArrow;
         public static CardManager Instance { get; private set; }
         private void Awake()
         {
@@ -40,6 +41,7 @@ namespace CardSystem
                 FirstPlayerCardIDs.OnListChanged += OnFirstPlayerCardsChanged;
                 SecondPlayerCardIDs.OnListChanged += OnSecondPlayerCardsChanged;
             }
+            
         }
 
         public void AddCardToThePlayer(int cardID, int clientID)
@@ -78,7 +80,6 @@ namespace CardSystem
                 Soldier soldier = networkObject.GetComponent<Soldier>();
                 if (soldier != null && soldier.SoldierId == targetID)
                 {
-                    Debug.Log("Found this soldier: " + soldier.name);
                     return soldier;
                 }
             }
@@ -91,6 +92,7 @@ namespace CardSystem
             {
                 if (clientID == 1)
                 {
+                    Debug.Log("first player card count: " + FirstPlayerPlayedCards.Count);
                     if (FirstPlayerPlayedCards.Count < 3)
                     {
                         Debug.Log("ADD TO FIRST PLAYER CARDS: " + cardID + " t: " + targetID);
@@ -120,12 +122,50 @@ namespace CardSystem
             Debug.Log("Second player cards updated.");
             // Handle logic for when the second player's cards change.
         }
+              
+        public void RemoveCardForSoldier(int soldierID)
+        {
+            if (IsServer)
+            {
+                CardData cardData = m_allCards.Find(card => card.SoldierID == soldierID);
+                if (cardData != null)
+                {
+                    FirstPlayerCardIDs.Remove(cardData.ID);
+                    SecondPlayerCardIDs.Remove(cardData.ID);
+                }
+            }
+        }
+        
+        public int GetSoldierClient(int soldierID)
+        {
+            CardData cardData = m_allCards.Find(card => card.SoldierID == soldierID);
+            if (FirstPlayerCardIDs.Contains(cardData.ID))
+            {
+                return 0;
+            }
+            else if (SecondPlayerCardIDs.Contains(cardData.ID))
+            {
+                return 1;
+            }
+
+            return 99;
+        }
         
         [ClientRpc]
         private void UpdatePlayedCardsClientRpc(int clientID, int cardID, int targetID)
         {
-            Debug.Log("Fire played card event!!!");
             playedCard?.Invoke(clientID, cardID, targetID);
+        }
+
+        public void RemoveArrow(int cardID)
+        {
+            RemoveArrowClientRpc(cardID);
+        }
+        
+        [ClientRpc]
+        private void RemoveArrowClientRpc(int cardID)
+        {
+            removedArrow?.Invoke(cardID);
         }
         
         public CardData GetCardDataById(int cardId)

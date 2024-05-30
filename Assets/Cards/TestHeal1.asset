@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: TestHeal1
   m_EditorClassIdentifier: 
   ID: 1
-  Name: healer
+  Name: healer1
   Icon: {fileID: 0}
   Description: restores health
   Damage: 0

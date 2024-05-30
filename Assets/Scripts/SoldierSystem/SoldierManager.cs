@@ -33,13 +33,14 @@ namespace SoldierSystem
             GameObject prefab = m_soldierPrefabs.FirstOrDefault(p => p.GetComponent<Soldier>().SoldierId == soldierId);
             if (prefab != null)
             {
-                var pos = new Vector3(soldierId * 3.0f - ((int)clientID - 1) * 9, 0, (int)clientID * 3);
+                var pos = new Vector3(soldierId * 3.0f - ((int)clientID - 1) * 9, 0, (int)clientID * 6);
                 GameObject soldierInstance = Instantiate(prefab, pos, Quaternion.identity);
                 soldierInstance.GetComponent<NetworkObject>().Spawn();
                 Soldier soldier = soldierInstance.GetComponent<Soldier>();
                 soldierInstance.name = soldier.Name;
                 soldier.SetInitialValues();
                 m_cardManager.AddCardToThePlayer(soldier.SoldierCards[0].ID, (int)clientID);
+                soldierInstance.tag = "Player" + (clientID-1);
                 TagSoldierClientRpc(soldierInstance.GetComponent<NetworkObject>().NetworkObjectId, clientID);
             } else {
                 Debug.LogError("No prefab found with Soldier ID: " + soldierId);

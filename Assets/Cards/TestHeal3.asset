@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: TestHeal3
   m_EditorClassIdentifier: 
   ID: 3
-  Name: healer
+  Name: healer3
   Icon: {fileID: 0}
   Description: restores health
   Damage: 0
-  Heal: 5
+  Heal: 7
   effectType: 1
   SoldierID: 3
